@@ -2218,7 +2218,7 @@ dependencies = [
 [[package]]
 name = "temp-voice"
 version = "0.1.0"
-source = "git+https://github.com/zayden-bot/temp-voice.git?branch=main#1ed369d2c10db16e301cc13275a61e7c731679f9"
+source = "git+https://github.com/zayden-bot/temp-voice.git?branch=main#190a2f1e6de12f04d7c7439c3fde0caa37007a44"
 dependencies = [
  "async-trait",
  "serenity",
