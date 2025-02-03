@@ -20,7 +20,6 @@ impl PostgresPool {
 
         let pool = PgPoolOptions::new()
             .max_connections(10)
-            .min_connections(1)
             .connect(&database_url)
             .await
             .unwrap();
@@ -94,7 +93,7 @@ impl TempVoiceGuildManager<Postgres> for GuildTable {
         Ok(ChannelId::from(category))
     }
 
-    async fn get_creator_channel(pool: &PgPool, id: GuildId) -> sqlx::Result<ChannelId> {
+    async fn get_creator_channel(pool: &PgPool, id: GuildId) -> sqlx::Result<Option<ChannelId>> {
         let row = sqlx::query!(
             r#"SELECT temp_voice_creator_channel FROM guilds WHERE id = $1"#,
             id.get() as i64
@@ -104,8 +103,8 @@ impl TempVoiceGuildManager<Postgres> for GuildTable {
 
         let channel_id = row
             .temp_voice_creator_channel
-            .expect("Channel ID is required when saving") as u64;
+            .map(|id| ChannelId::new(id as u64));
 
-        Ok(ChannelId::from(channel_id))
+        Ok(channel_id)
     }
 }
