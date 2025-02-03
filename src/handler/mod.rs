@@ -1,3 +1,4 @@
+mod guild_create;
 mod interactions;
 mod message;
 pub mod reaction_add;
@@ -34,6 +35,7 @@ impl RawEventHandler for Handler {
             Event::InteractionCreate(interaction) => {
                 Self::interaction_create(&ctx, interaction.interaction, &pool).await
             }
+            Event::GuildCreate(guild) => Self::guild_create(&ctx, guild.guild, &pool).await,
             Event::MessageCreate(message) => Self::message(&ctx, message.message, &pool).await,
             Event::ReactionAdd(reaction) => {
                 Self::reaction_add(&ctx, reaction.reaction, &pool).await
