@@ -58,6 +58,10 @@ impl Rules {
             "Cheating and Network Manipulation",
             "Discussions involving cheating methods, paid carries, win trading, or similar exploitative activities are strictly prohibited. Such topics will be handled by the moderation team at their discretion. Activities that violate Bungie's terms of service and result in a ban from their platform will also lead to equivalent action within this community.",
             false
+        ).field(
+            "Spoilers",
+            "Discussing content that has been officially announced (trailers, updates, twabs, etc) is __allowed__ in general chats if you wish to remain in the dark it is your responsibility to avoid social media site until the appropriate time.\n\nDiscussing unofficial leaks (datamining, rumours etc) must be contained to __a thread__ and not in the main channel.",
+            false
         );
 
         channel_id
