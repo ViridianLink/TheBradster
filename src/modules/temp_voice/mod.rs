@@ -4,50 +4,75 @@ pub use commands::Voice;
 pub mod events;
 
 use async_trait::async_trait;
-use serenity::all::ChannelId;
-use sqlx::{any::AnyQueryResult, PgPool, Postgres};
-use temp_voice::voice_channel_manager::VoiceChannelRow;
-use temp_voice::{VoiceChannelData, VoiceChannelManager};
+use serenity::all::{ChannelId, UserId};
+use sqlx::any::AnyQueryResult;
+use sqlx::{PgPool, Postgres};
+use temp_voice::voice_channel_manager::VoiceChannelMode;
+use temp_voice::{VoiceChannelManager, VoiceChannelRow};
 
+#[derive(sqlx::Type)]
+#[sqlx(type_name = "temp_voice_mode")]
+struct TempVoiceMode(VoiceChannelMode);
+
+impl From<VoiceChannelMode> for TempVoiceMode {
+    fn from(mode: VoiceChannelMode) -> Self {
+        TempVoiceMode(mode)
+    }
+}
+
+impl From<TempVoiceMode> for VoiceChannelMode {
+    fn from(wrapper: TempVoiceMode) -> Self {
+        wrapper.0
+    }
+}
 struct VoiceChannelTable;
 
 #[async_trait]
 impl VoiceChannelManager<Postgres> for VoiceChannelTable {
-    async fn get(pool: &PgPool, id: ChannelId) -> sqlx::Result<Option<VoiceChannelData>> {
+    async fn get(pool: &PgPool, id: ChannelId) -> sqlx::Result<Option<VoiceChannelRow>> {
         let row = sqlx::query_as!(
             VoiceChannelRow,
-            r#"SELECT * FROM voice_channels WHERE id = $1"#,
+            r#"SELECT id, owner_id, trusted_ids, invites, password, persistent, mode AS "mode: TempVoiceMode" FROM voice_channels WHERE id = $1"#,
             id.get() as i64
         )
         .fetch_optional(pool)
         .await?;
 
-        Ok(row.map(VoiceChannelData::from))
+        Ok(row)
     }
 
-    async fn save(
-        pool: &PgPool,
-        id: impl Into<i64> + Send,
-        owner_id: impl Into<i64> + Send,
-        trusted_ids: &[i64],
-        password: Option<&str>,
-        persistent: impl Into<bool> + Send,
-    ) -> sqlx::Result<AnyQueryResult> {
+    async fn count_persistent_channels(pool: &PgPool, user_id: UserId) -> sqlx::Result<i64> {
+        let count = sqlx::query!(
+            r#"SELECT COUNT(*) FROM voice_channels WHERE owner_id = $1 AND persistent = true"#,
+            user_id.get() as i64
+        )
+        .fetch_one(pool)
+        .await?
+        .count;
+
+        Ok(count.unwrap())
+    }
+
+    async fn save(pool: &PgPool, row: VoiceChannelRow) -> sqlx::Result<AnyQueryResult> {
+        let mode = TempVoiceMode::from(row.mode);
+
         let result = sqlx::query!(
             r#"
-            INSERT INTO voice_channels (id, owner_id, trusted_ids, password, persistent)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO voice_channels (id, owner_id, trusted_ids, password, persistent, invites, mode)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (id) DO UPDATE
-            SET owner_id = $2, trusted_ids = $3, password = $4, persistent = $5
+            SET owner_id = $2, trusted_ids = $3, password = $4, persistent = $5, invites = $6, mode = $7
             "#,
-            id.into(),
-            owner_id.into(),
-            trusted_ids,
-            password,
-            persistent.into()
+            row.id,
+            row.owner_id,
+            &row.trusted_ids,
+            row.password,
+            row.persistent,
+            &row.invites,
+            mode as TempVoiceMode
         )
         .execute(pool)
-        .await?;
+        .await.unwrap();
 
         Ok(result.into())
     }
