@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+futures = { version = "*", default-features = false, features = [
+    "async-await",
+] }
 zayden-core = { git = "https://github.com/zayden-bot/slash-command-core.git", branch = "master" }
 lfg = { git = "https://github.com/zayden-bot/lfg.git", branch = "main" }
 temp-voice = { git = "https://github.com/zayden-bot/temp-voice.git", branch = "main" }
@@ -17,6 +20,7 @@ tokio = { version = "*", default-features = false, features = [
     "rt-multi-thread",
 ] }
 chrono = { version = "*", default-features = false }
+time = { version = "*", default-features = false }
 rand = { version = "*", default-features = false }
 chrono-tz = { version = "*", default-features = false }
 sqlx = { version = "*", default-features = false, features = [
@@ -37,3 +41,4 @@ serenity = { version = "*", default-features = false, features = [
     "rustls_backend",
 ] }
 const_format = { version = "*", default-features = false }
+cron = { version = "*", default-features = false }
