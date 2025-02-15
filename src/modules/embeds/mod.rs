@@ -1,8 +1,7 @@
 mod clans;
-pub use clans::Clans;
-
 mod rules;
-pub use rules::Rules;
-
 mod socials;
+
+pub use clans::Clans;
+pub use rules::Rules;
 pub use socials::Socials;
