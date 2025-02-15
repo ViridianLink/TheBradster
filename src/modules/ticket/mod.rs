@@ -59,4 +59,12 @@ impl TicketManager<Postgres> for TicketTable {
 
         Ok(row)
     }
+
+    async fn delete(pool: &PgPool, id: impl Into<MessageId> + Send) -> sqlx::Result<()> {
+        sqlx::query!("DELETE FROM tickets WHERE id = $1", id.into().get() as i64)
+            .execute(pool)
+            .await?;
+
+        Ok(())
+    }
 }
