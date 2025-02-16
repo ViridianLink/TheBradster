@@ -1,7 +1,6 @@
 use serenity::all::{Context, OnlineStatus, Ready};
 use sqlx::PgPool;
 
-use crate::cron::start_cron_jobs;
 use crate::{modules, Result, GUILD_ID};
 
 use super::Handler;
@@ -16,9 +15,6 @@ impl Handler {
             .set_commands(ctx, modules::register(ctx, &ready))
             .await
             .unwrap();
-
-        let ctx_clone = ctx.clone();
-        tokio::spawn(async move { start_cron_jobs(ctx_clone).await });
 
         Ok(())
     }
