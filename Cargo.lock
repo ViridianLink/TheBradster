@@ -2298,7 +2298,7 @@ dependencies = [
 [[package]]
 name = "ticket"
 version = "0.1.0"
-source = "git+https://github.com/zayden-bot/ticket.git?branch=main#5a5bd090104819738ee18acb9c02f953c2eef210"
+source = "git+https://github.com/zayden-bot/ticket.git?branch=main#42c5091a04b6037a2d3ebbb584d3a83644577f1b"
 dependencies = [
  "async-trait",
  "futures",
