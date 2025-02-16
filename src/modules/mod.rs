@@ -1,4 +1,5 @@
 pub mod embeds;
+pub mod events;
 pub mod levels;
 pub mod lfg;
 pub mod suggestions;
