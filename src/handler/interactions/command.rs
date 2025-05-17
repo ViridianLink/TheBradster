@@ -1,10 +1,9 @@
 use serenity::all::{CommandInteraction, Context, EditInteractionResponse};
 use sqlx::PgPool;
-use zayden_core::{get_option_str, ErrorResponse, SlashCommand};
+use zayden_core::{get_option_str, SlashCommand};
 
-use crate::modules::embeds::{Clans, Rules, Socials};
-use crate::modules::lfg::Lfg;
-use crate::modules::temp_voice::Voice;
+use crate::modules::bingo::Bingo;
+use crate::modules::embeds::{Rules, Sponsors};
 use crate::modules::ticket::slash_commands::TicketCommand;
 use crate::Result;
 
@@ -22,12 +21,12 @@ pub async fn interaction_command(
     );
 
     let result = match interaction.data.name.as_str() {
-        "clans" => Clans::run(ctx, interaction, options, pool).await,
-        "d2rules" => Rules::run(ctx, interaction, options, pool).await,
-        "socials" => Socials::run(ctx, interaction, options, pool).await,
-        "lfg" => Lfg::run(ctx, interaction, options, pool).await,
-        "voice" => Voice::run(ctx, interaction, options, pool).await,
+        // region: embeds
+        "rules" => Rules::run(ctx, interaction, options, pool).await,
+        "sponsors" => Sponsors::run(ctx, interaction, options, pool).await,
+        // endregion
         "ticket" => TicketCommand::run(ctx, interaction, options, pool).await,
+        "bingo" => Bingo::run(ctx, interaction, options, pool).await,
         _ => {
             println!("Unknown command: {}", interaction.data.name);
             Ok(())
@@ -35,7 +34,7 @@ pub async fn interaction_command(
     };
 
     if let Err(e) = result {
-        let msg = e.to_response();
+        let msg = e.to_string();
 
         let _ = interaction.defer_ephemeral(ctx).await;
 

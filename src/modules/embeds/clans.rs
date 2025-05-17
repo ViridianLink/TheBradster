@@ -1,12 +1,15 @@
 use async_trait::async_trait;
 use serenity::all::{
     CommandInteraction, Context, CreateButton, CreateCommand, CreateEmbed, CreateMessage,
-    EditInteractionResponse, Mentionable, Permissions, Ready, ResolvedOption,
+    EditInteractionResponse, Mentionable, Permissions, ResolvedOption, UserId,
 };
 use sqlx::{PgPool, Postgres};
 use zayden_core::SlashCommand;
 
-use crate::{Error, Result, BRADLEY_ID, SLEEPIE_ID};
+use crate::{Error, Result};
+
+const BRADLEY: UserId = UserId::new(1);
+const SLEEPIE: UserId = UserId::new(1);
 
 pub struct Clans;
 
@@ -25,12 +28,12 @@ impl SlashCommand<Error, Postgres> for Clans {
             .description("Click one of the buttons below to join a clan. The clans have no requirements to join, however members will be removed for prolonged inactivity to make space for new members.")
             .field(
                 "The Inglorious Bradsters",
-                format!("Clan Leader: {}", BRADLEY_ID.mention()),
+                format!("Clan Leader: {}", BRADLEY.mention()),
                 true,
             )
             .field(
                 "INGLORIOUS BRADSTERS 2",
-                format!("Clan Leader: {}", SLEEPIE_ID.mention()),
+                format!("Clan Leader: {}", SLEEPIE.mention()),
                 true,
             );
 
@@ -64,7 +67,7 @@ impl SlashCommand<Error, Postgres> for Clans {
         Ok(())
     }
 
-    fn register(_ctx: &Context, _ready: &Ready) -> Result<CreateCommand> {
+    fn register(_ctx: &Context) -> Result<CreateCommand> {
         let cmd = CreateCommand::new("clans")
             .description("Send the clans embed")
             .default_member_permissions(Permissions::ADMINISTRATOR);

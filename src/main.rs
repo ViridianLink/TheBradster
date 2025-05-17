@@ -1,35 +1,28 @@
-mod error;
-mod sqlx_lib;
-pub use error::{Error, Result};
-
-mod handler;
-use handler::Handler;
-use sqlx_lib::PostgresPool;
-use temp_voice::VoiceStateCache;
-
-pub mod modules;
-
-use std::collections::HashMap;
 use std::env;
 
 use serenity::all::{ClientBuilder, GatewayIntents, GuildId, UserId};
 use serenity::prelude::TypeMap;
 
-pub const OSCAR_SIX_ID: UserId = UserId::new(211486447369322506);
-pub const BRADLEY_ID: UserId = UserId::new(381973220083105793);
-pub const SLEEPIE_ID: UserId = UserId::new(906674461506416671);
+mod handler;
+pub mod modules;
+mod sqlx_lib;
+use sqlx_lib::PostgresPool;
+mod error;
 
+use handler::Handler;
+
+pub use error::{Error, Result};
+
+pub const OSCAR_SIX_ID: UserId = UserId::new(211486447369322506);
 pub const GUILD_ID: GuildId = GuildId::new(1255957182457974875);
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
     dotenvy::dotenv().unwrap();
 
-    let pool = PostgresPool::init().await?;
-
+    let pool = PostgresPool::init().await;
     let mut type_map = TypeMap::new();
     type_map.insert::<PostgresPool>(pool);
-    type_map.insert::<VoiceStateCache>(HashMap::new());
 
     let token = &env::var("DISCORD_TOKEN").unwrap();
 
@@ -40,6 +33,4 @@ async fn main() -> Result<()> {
         .unwrap();
 
     client.start().await.unwrap();
-
-    Ok(())
 }

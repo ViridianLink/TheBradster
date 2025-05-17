@@ -6,7 +6,9 @@ use crate::sqlx_lib::GuildTable;
 use crate::Result;
 
 pub async fn support(ctx: &Context, msg: &Message, pool: &PgPool) -> Result<()> {
-    SupportMessageCommand::run::<Postgres, GuildTable>(ctx, msg, pool).await?;
+    SupportMessageCommand::run::<Postgres, GuildTable>(ctx, msg, pool)
+        .await
+        .unwrap();
 
     Ok(())
 }

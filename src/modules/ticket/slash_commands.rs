@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use serenity::all::{CommandInteraction, Context, CreateCommand, Ready, ResolvedOption};
+use serenity::all::{CommandInteraction, Context, CreateCommand, ResolvedOption};
 use sqlx::{PgPool, Postgres};
 use zayden_core::SlashCommand;
 
@@ -24,12 +24,13 @@ impl SlashCommand<Error, Postgres> for TicketCommand {
             pool,
             options,
         )
-        .await?;
+        .await
+        .unwrap();
 
         Ok(())
     }
 
-    fn register(_ctx: &Context, _ready: &Ready) -> Result<CreateCommand> {
+    fn register(_ctx: &Context) -> Result<CreateCommand> {
         Ok(ticket::TicketCommand::register())
     }
 }
@@ -45,12 +46,13 @@ impl SlashCommand<Error, Postgres> for SupportCommand {
         pool: &PgPool,
     ) -> Result<()> {
         ticket::SupportCommand::run::<Postgres, GuildTable>(ctx, interaction, pool, options)
-            .await?;
+            .await
+            .unwrap();
 
         Ok(())
     }
 
-    fn register(_ctx: &Context, _ready: &Ready) -> Result<CreateCommand> {
+    fn register(_ctx: &Context) -> Result<CreateCommand> {
         Ok(ticket::SupportCommand::register())
     }
 }

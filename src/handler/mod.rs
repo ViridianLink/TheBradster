@@ -1,10 +1,5 @@
-mod guild_create;
 mod interactions;
-mod message;
-pub mod reaction_add;
-pub mod reaction_remove;
 mod ready;
-mod voice_state_update;
 
 use async_trait::async_trait;
 use serenity::all::{Event, InteractionCreateEvent, RawEventHandler};
@@ -35,18 +30,8 @@ impl RawEventHandler for Handler {
             Event::InteractionCreate(interaction) => {
                 Self::interaction_create(&ctx, interaction.interaction, &pool).await
             }
-            Event::GuildCreate(guild) => Self::guild_create(&ctx, guild.guild, &pool).await,
-            Event::MessageCreate(message) => Self::message(&ctx, message.message, &pool).await,
-            Event::ReactionAdd(reaction) => {
-                Self::reaction_add(&ctx, reaction.reaction, &pool).await
-            }
-            Event::ReactionRemove(reaction) => {
-                Self::reaction_remove(&ctx, reaction.reaction, &pool).await
-            }
             Event::Ready(ready) => Self::ready(&ctx, ready.ready, &pool).await,
-            Event::VoiceStateUpdate(voice_state) => {
-                Self::voice_state_update(&ctx, voice_state.voice_state, &pool).await
-            }
+
             _ => Ok(()),
         };
 

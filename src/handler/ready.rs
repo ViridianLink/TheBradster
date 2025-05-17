@@ -12,7 +12,7 @@ impl Handler {
         ctx.set_presence(None, OnlineStatus::Online);
 
         GUILD_ID
-            .set_commands(ctx, modules::register(ctx, &ready))
+            .set_commands(ctx, modules::register(ctx))
             .await
             .unwrap();
 
