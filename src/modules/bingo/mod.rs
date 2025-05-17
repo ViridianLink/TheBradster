@@ -1,4 +1,8 @@
+mod confirm;
+pub use confirm::BingoConfirm;
+
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use async_trait::async_trait;
 use rand::rng;
@@ -111,6 +115,13 @@ const NOTES: &str = "- Your card is randomly generated from a list of spaces cre
 
 const GRID_SIZE: u8 = 5;
 
+pub fn register(ctx: &Context) -> [CreateCommand; 2] {
+    [
+        Bingo::register(ctx).unwrap(),
+        BingoConfirm::register(ctx).unwrap(),
+    ]
+}
+
 pub struct Bingo;
 
 #[async_trait]
@@ -132,10 +143,10 @@ impl SlashCommand<Error, Postgres> for Bingo {
             }
         }
 
-        // SPACES
-        //     .iter()
-        //     .filter(|space| space.len() > 80)
-        //     .for_each(|space| println!("Warning: Space '{space}' is longer than 80 characters"));
+        SPACES
+            .iter()
+            .filter(|space| space.len() > 80)
+            .for_each(|space| println!("Warning: Space '{space}' is longer than 80 characters"));
 
         let embed = CreateEmbed::new()
             .title(TITLE)
@@ -223,7 +234,7 @@ impl Component<Error, Postgres> for Bingo {
                 .field("Values", labels.join("\n"), false)
                 .field("Bingo Card", emoji_card(&components), false)
                 .footer(CreateEmbedFooter::new(
-                    "Use `/bingoconfirm` or `/bingodeny` to accept or reject this win.",
+                    "Use `/bingoconfirm` to accept this win.",
                 ));
 
             let button = CreateButton::new("support_close")
@@ -466,16 +477,16 @@ fn update_button(components: &mut [ActionRow], button_id: &str) -> bool {
     match &mut button.data {
         ButtonKind::NonLink { custom_id, style } => {
             if custom_id.as_str() == button_id {
-                // if *style == ButtonStyle::Primary {
-                *style = ButtonStyle::Success;
-                return true;
-                // }
+                if *style == ButtonStyle::Primary {
+                    *style = ButtonStyle::Success;
+                    return true;
+                }
 
-                // if *style == ButtonStyle::Secondary {
-                //     *style = ButtonStyle::Primary;
-                // }
+                if *style == ButtonStyle::Secondary {
+                    *style = ButtonStyle::Primary;
+                }
 
-                // return false;
+                return false;
             }
         }
         _ => unreachable!("ButtonKind must be NonLink"),
@@ -491,6 +502,34 @@ pub enum GridCondition {
     MainDiagonalSuccess,
     AntiDiagonalSuccess,
     FullGridSuccess,
+}
+
+impl FromStr for GridCondition {
+    type Err = ();
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        if s.starts_with("RowSuccess(") && s.ends_with(')') {
+            let inner = &s[11..s.len() - 1];
+            match inner.parse::<u8>() {
+                Ok(val) => Ok(GridCondition::RowSuccess(val)),
+                Err(_) => Err(()),
+            }
+        } else if s.starts_with("ColumnSuccess(") && s.ends_with(')') {
+            let inner = &s[14..s.len() - 1];
+            println!("inner: {inner}");
+            match inner.parse::<u8>() {
+                Ok(val) => Ok(GridCondition::ColumnSuccess(val)),
+                Err(_) => Err(()),
+            }
+        } else {
+            match s {
+                "MainDiagonalSuccess" => Ok(GridCondition::MainDiagonalSuccess),
+                "AntiDiagonalSuccess" => Ok(GridCondition::AntiDiagonalSuccess),
+                "FullGridSuccess" => Ok(GridCondition::FullGridSuccess),
+                _ => Err(()),
+            }
+        }
+    }
 }
 
 fn check_grid_conditions(
