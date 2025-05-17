@@ -20,7 +20,7 @@ use zayden_core::{Component, SlashCommand};
 
 use crate::{Error, Result};
 
-const SPACES: [&str; 70] = [
+const SPACES: [&str; 73] = [
     "Brad finds a red border chest room and spends way too much time in it",
     "Raid Exotic dropped for someone",
     "Falls off the map in exhibition with a relic",
@@ -58,7 +58,7 @@ const SPACES: [&str; 70] = [
     "Dies to the beam in Rhulk",
     "Dunks the wrong pillar",
     "Forgets to split",
-    "Full blind clear 1 encounter",
+    "Queen's Breaker is used",
     "Brad mispronounces Rhulk.",
     "Uses the left wall cheese at Exhibition",
     "Brad wears glasses",
@@ -89,8 +89,11 @@ const SPACES: [&str; 70] = [
     "Someone dies to the forcefield at Rhulk",
     "Someone mentions feet",
     "Forgets to rally",
-    "Misses a T Crash",
+    "Lord of Wolves is used",
     "Someone misses a golden gun",
+    "Brad dodges IRL",
+    "Brad wears the SGT hat",
+    "Accidentally pushes caretaker to the next floor on the first plate",
 ];
 
 const TITLE: &str = "🎉 Bingo Card 🎉";
