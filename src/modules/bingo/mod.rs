@@ -4,10 +4,11 @@ use async_trait::async_trait;
 use rand::rng;
 use rand::seq::IndexedRandom;
 use serenity::all::{
-    ActionRow, ActionRowComponent, ButtonKind, ButtonStyle, CommandInteraction,
-    ComponentInteraction, Context, CreateActionRow, CreateButton, CreateCommand, CreateEmbed,
-    CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage,
-    EditInteractionResponse, ResolvedOption, UserId,
+    ActionRow, ActionRowComponent, AutoArchiveDuration, ButtonKind, ButtonStyle, ChannelId,
+    ChannelType, CommandInteraction, ComponentInteraction, Context, CreateActionRow,
+    CreateAttachment, CreateButton, CreateCommand, CreateEmbed, CreateEmbedFooter,
+    CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateThread,
+    EditInteractionResponse, Mentionable, ResolvedOption, RoleId, UserId,
 };
 use serenity::prelude::TypeMapKey;
 use sqlx::{PgPool, Postgres};
@@ -108,6 +109,8 @@ const NOTES: &str = "- Your card is randomly generated from a list of spaces cre
 - Once a button is green, there's no going back — if it's a false mark, your card will become null and void.
 - Highlighting a button in blue can help you keep track — for example, if Brad enters the third encounter and you know a square can only happen there, you can highlight it to help remember. It's also a safety feature to prevent misclicks.";
 
+const GRID_SIZE: u8 = 5;
+
 pub struct Bingo;
 
 #[async_trait]
@@ -183,8 +186,8 @@ impl Component<Error, Postgres> for Bingo {
         let mut components = interaction.message.components.clone();
 
         let changed = update_button(&mut components, &interaction.data.custom_id);
-        let condition = if changed {
-            let win_state: HashMap<WinCondition, bool> = {
+        let (condition, labels) = if changed {
+            let win_state = {
                 let data = ctx.data.read().await;
                 data.get::<BingoWinState>()
                     .expect("WinState should be present")
@@ -193,10 +196,64 @@ impl Component<Error, Postgres> for Bingo {
 
             check_grid_conditions(&components, &win_state)
         } else {
-            None
+            (None, Vec::new())
         };
 
-        println!("{:?}", condition);
+        if let Some(condition) = condition {
+            const CHANNEL_ID: ChannelId = ChannelId::new(1328070131380781189);
+            const TWITCH_MODS: RoleId = RoleId::new(1275149982701191260);
+            const DISCORD_MODS: RoleId = RoleId::new(1275143477654454394);
+
+            let thread = CHANNEL_ID
+                .create_thread(
+                    ctx,
+                    CreateThread::new(format!(
+                        "BINGO - {} - {condition:?}",
+                        interaction.user.display_name()
+                    ))
+                    .kind(ChannelType::PrivateThread)
+                    .auto_archive_duration(AutoArchiveDuration::OneWeek),
+                )
+                .await
+                .unwrap();
+
+            let embed = CreateEmbed::new()
+                .title("BINGO")
+                .field("Win Condition", format!("{condition:?}"), false)
+                .field("Values", labels.join("\n"), false)
+                .field("Bingo Card", emoji_card(&components), false)
+                .footer(CreateEmbedFooter::new(
+                    "Use `/bingoconfirm` or `/bingodeny` to accept or reject this win.",
+                ));
+
+            let button = CreateButton::new("support_close")
+                .label("Close")
+                .style(ButtonStyle::Primary);
+
+            thread
+                .send_message(
+                    ctx,
+                    CreateMessage::new()
+                        .content(format!(
+                            "{} {}\nPlease verify the following BINGO card from {}",
+                            TWITCH_MODS.mention(),
+                            DISCORD_MODS.mention(),
+                            interaction.user.mention()
+                        ))
+                        .embed(embed)
+                        .button(button),
+                )
+                .await
+                .unwrap();
+
+            let file =
+                CreateAttachment::bytes(pretty_print_card(&components).as_bytes(), "bingocard.txt");
+
+            thread
+                .send_message(ctx, CreateMessage::new().files([file]))
+                .await
+                .unwrap();
+        }
 
         {
             let mut data = ctx.data.write().await;
@@ -242,23 +299,10 @@ impl TypeMapKey for BingoMessages {
     type Value = HashMap<UserId, Vec<ActionRow>>;
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
-enum WinCondition {
-    FullHouse,
-    Row,
-    Column,
-    Diagonal,
-    OneLine,
-    TwoLines,
-    ThreeLines,
-    FourLines,
-}
-
-struct BingoWinState;
+pub struct BingoWinState;
 
 impl TypeMapKey for BingoWinState {
-    type Value = HashMap<WinCondition, bool>;
+    type Value = Vec<GridCondition>;
 }
 
 fn components() -> Vec<CreateActionRow> {
@@ -288,6 +332,105 @@ fn components() -> Vec<CreateActionRow> {
     components
 }
 
+fn emoji_card(grid: &[ActionRow]) -> String {
+    let mut s = String::new();
+
+    for row in grid {
+        for component in &row.components {
+            let ActionRowComponent::Button(button) = component else {
+                unreachable!("Component must be a button")
+            };
+
+            let ButtonKind::NonLink { style, .. } = button.data else {
+                unreachable!("Button data must be of kinda NonLink")
+            };
+
+            if style == ButtonStyle::Success {
+                s.push('🟩');
+                continue;
+            }
+
+            s.push('⬛');
+        }
+
+        s.push('\n');
+    }
+
+    s
+}
+
+fn center_pad(text: &str, width: usize) -> String {
+    let text_len = text.len();
+
+    if width <= text_len {
+        return text.to_string();
+    }
+
+    let total_padding = width - text_len;
+    let left_padding = total_padding / 2;
+    let right_padding = total_padding - left_padding;
+
+    format!(
+        "{}{}{}",
+        " ".repeat(left_padding),
+        text,
+        " ".repeat(right_padding)
+    )
+}
+
+fn pretty_print_card(grid: &[ActionRow]) -> String {
+    let max_item_len = grid
+        .iter()
+        .flat_map(|row| {
+            row.components
+                .iter()
+                .filter_map(|component| match component {
+                    ActionRowComponent::Button(component) => Some(component),
+                    _ => None,
+                })
+                .filter_map(|button| button.label.as_deref())
+        })
+        .map(|label| label.len())
+        .max()
+        .unwrap();
+
+    let col_width = max_item_len;
+
+    let mut output_string = String::new();
+
+    let horizontal_segment = "-".repeat(col_width);
+
+    let separator_inner_parts: Vec<&str> = (0..GRID_SIZE)
+        .map(|_| horizontal_segment.as_str())
+        .collect();
+    let separator_line = format!("+{}+\n", separator_inner_parts.join("+"));
+
+    output_string.push_str(&separator_line);
+
+    for row in grid.iter() {
+        let centered_cells: Vec<String> = row
+            .components
+            .iter()
+            .filter_map(|component| match component {
+                ActionRowComponent::Button(component) => Some(component),
+                _ => None,
+            })
+            .filter_map(|button| match &button.data {
+                ButtonKind::NonLink { style, .. } => button.label.as_deref().map(|l| (l, style)),
+                _ => None,
+            })
+            .map(|(label, _style)| center_pad(label, col_width))
+            .collect();
+
+        let row_str = format!("|{}|\n", centered_cells.join("|"));
+
+        output_string.push_str(&row_str);
+        output_string.push_str(&separator_line); // Add separator after each row
+    }
+
+    output_string
+}
+
 fn get_button_style(grid: &[ActionRow], r: u8, c: u8) -> ButtonStyle {
     match &grid[r as usize].components[c as usize] {
         ActionRowComponent::Button(button) => match &button.data {
@@ -298,12 +441,21 @@ fn get_button_style(grid: &[ActionRow], r: u8, c: u8) -> ButtonStyle {
     }
 }
 
+fn get_button_label(grid: &[ActionRow], r: u8, c: u8) -> &str {
+    match &grid[r as usize].components[c as usize] {
+        ActionRowComponent::Button(button) => button.label.as_deref().unwrap(),
+        _ => unreachable!("Expected Button component at ({}, {})", r, c),
+    }
+}
+
 fn update_button(components: &mut [ActionRow], button_id: &str) -> bool {
-    let (r, c) = button_id
-        .strip_prefix("bingo")
-        .unwrap()
-        .split_once("")
-        .unwrap();
+    let mut chars = button_id.strip_prefix("bingo_").unwrap().chars();
+
+    let mut r_buffer = [0; 4];
+    let mut c_buffer = [0; 4];
+
+    let r = chars.next().unwrap().encode_utf8(&mut r_buffer);
+    let c = chars.next().unwrap().encode_utf8(&mut c_buffer);
 
     let ActionRowComponent::Button(button) =
         &mut components[r.parse::<usize>().unwrap()].components[c.parse::<usize>().unwrap()]
@@ -314,16 +466,16 @@ fn update_button(components: &mut [ActionRow], button_id: &str) -> bool {
     match &mut button.data {
         ButtonKind::NonLink { custom_id, style } => {
             if custom_id.as_str() == button_id {
-                if *style == ButtonStyle::Primary {
-                    *style = ButtonStyle::Success;
-                    return true;
-                }
+                // if *style == ButtonStyle::Primary {
+                *style = ButtonStyle::Success;
+                return true;
+                // }
 
-                if *style == ButtonStyle::Secondary {
-                    *style = ButtonStyle::Primary;
-                }
+                // if *style == ButtonStyle::Secondary {
+                //     *style = ButtonStyle::Primary;
+                // }
 
-                return false;
+                // return false;
             }
         }
         _ => unreachable!("ButtonKind must be NonLink"),
@@ -332,7 +484,7 @@ fn update_button(components: &mut [ActionRow], button_id: &str) -> bool {
     false
 }
 
-#[derive(Debug)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum GridCondition {
     RowSuccess(u8),
     ColumnSuccess(u8),
@@ -343,54 +495,84 @@ pub enum GridCondition {
 
 fn check_grid_conditions(
     grid: &[ActionRow],
-    _win_states: &HashMap<WinCondition, bool>,
-) -> Option<GridCondition> {
-    const GRID_SIZE: u8 = 5;
-
+    win_states: &[GridCondition],
+) -> (Option<GridCondition>, Vec<String>) {
     // 1. Check for any full row of ButtonStyle::Success
-    for r_idx in 0..GRID_SIZE {
+    for r_idx in (0..GRID_SIZE).filter(|idx| !win_states.contains(&GridCondition::RowSuccess(*idx)))
+    {
         if (0..GRID_SIZE).all(|c_idx| get_button_style(grid, r_idx, c_idx) == ButtonStyle::Success)
         {
-            return Some(GridCondition::RowSuccess(r_idx));
+            return (
+                Some(GridCondition::RowSuccess(r_idx)),
+                (0..GRID_SIZE)
+                    .map(|c_idx| get_button_label(grid, r_idx, c_idx).to_string())
+                    .collect(),
+            );
         }
     }
 
     // 2. Check for any full column of ButtonStyle::Success
-    for c_idx in 0..GRID_SIZE {
+    for c_idx in
+        (0..GRID_SIZE).filter(|idx| !win_states.contains(&GridCondition::ColumnSuccess(*idx)))
+    {
         if (0..GRID_SIZE).all(|r_idx| get_button_style(grid, r_idx, c_idx) == ButtonStyle::Success)
         {
-            return Some(GridCondition::ColumnSuccess(c_idx));
+            return (
+                Some(GridCondition::ColumnSuccess(c_idx)),
+                (0..GRID_SIZE)
+                    .map(|r_idx| get_button_label(grid, r_idx, c_idx).to_string())
+                    .collect(),
+            );
         }
     }
 
     // 3. Check diagonals
-    let n = GRID_SIZE; // Size of the square grid
-
     // Main diagonal (top-left to bottom-right)
-    if (0..n).all(|i| get_button_style(grid, i, i) == ButtonStyle::Success) {
-        return Some(GridCondition::MainDiagonalSuccess);
+    if !win_states.contains(&GridCondition::MainDiagonalSuccess)
+        && (0..GRID_SIZE).all(|i| get_button_style(grid, i, i) == ButtonStyle::Success)
+    {
+        return (
+            Some(GridCondition::MainDiagonalSuccess),
+            (0..GRID_SIZE)
+                .map(|i| get_button_label(grid, i, i).to_string())
+                .collect(),
+        );
     }
 
     // Anti-diagonal (top-right to bottom-left)
-    if (0..n).all(|i| get_button_style(grid, i, n - 1 - i) == ButtonStyle::Success) {
-        return Some(GridCondition::AntiDiagonalSuccess);
+    if !win_states.contains(&GridCondition::AntiDiagonalSuccess)
+        && (0..GRID_SIZE)
+            .all(|i| get_button_style(grid, i, GRID_SIZE - 1 - i) == ButtonStyle::Success)
+    {
+        return (
+            Some(GridCondition::AntiDiagonalSuccess),
+            (0..GRID_SIZE)
+                .map(|i| get_button_label(grid, i, GRID_SIZE - 1 - i).to_string())
+                .collect(),
+        );
     }
 
-    let mut all_grid_is_success = true;
-    for r_idx in 0..GRID_SIZE {
-        for c_idx in 0..GRID_SIZE {
-            if get_button_style(grid, r_idx, c_idx) != ButtonStyle::Success {
-                all_grid_is_success = false;
+    if !win_states.contains(&GridCondition::FullGridSuccess) {
+        let mut all_grid_is_success = true;
+        let mut grid_labels = Vec::with_capacity(5);
+        for r_idx in 0..GRID_SIZE {
+            for c_idx in 0..GRID_SIZE {
+                if get_button_style(grid, r_idx, c_idx) != ButtonStyle::Success {
+                    all_grid_is_success = false;
+                    break;
+                }
+
+                grid_labels.push(get_button_label(grid, r_idx, c_idx).to_string());
+            }
+
+            if !all_grid_is_success {
                 break;
             }
         }
-        if !all_grid_is_success {
-            break;
+        if all_grid_is_success {
+            return (Some(GridCondition::FullGridSuccess), grid_labels);
         }
     }
-    if all_grid_is_success {
-        return Some(GridCondition::FullGridSuccess);
-    }
 
-    None
+    (None, Vec::new())
 }

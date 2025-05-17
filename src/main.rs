@@ -1,5 +1,6 @@
 use std::env;
 
+use modules::bingo::BingoWinState;
 use serenity::all::{ClientBuilder, GatewayIntents, GuildId, UserId};
 use serenity::prelude::TypeMap;
 
@@ -23,6 +24,7 @@ async fn main() {
     let pool = PostgresPool::init().await;
     let mut type_map = TypeMap::new();
     type_map.insert::<PostgresPool>(pool);
+    type_map.insert::<BingoWinState>(Vec::new());
 
     let token = &env::var("DISCORD_TOKEN").unwrap();
 
