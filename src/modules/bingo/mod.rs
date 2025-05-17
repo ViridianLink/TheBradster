@@ -103,7 +103,7 @@ const HOW_TO_WIN: &str = "- To win, you need to be the first to complete a winni
 - Incorrect BINGO will be discarded so, focus on accurately clicking your card!";
 const NOTES: &str = "- Your card is randomly generated from a list of spaces created by the Mod team.
 - Accurate Clicks Only: Please only click a square if the action/phrase has actually happened on stream. Mods will verify every BINGO!
-- Prizes: Today's winner(s) will get {PRIZE_STR}! 🏆
+- Prizes: Winner(s) will get to pick from a selection of Destiny 2 Emblems! 🏆
 - Ties: If the bot detects multiple BINGOs from the same action/phrase simultaneously, the winner will be the first person the bot registered and sent to the mods.
 - Your first click will highlight a square (aka a button) in blue. The second click will then lock it in — that means the item has been confirmed and the button will turn green.
 - Once a button is green, there's no going back — if it's a false mark, your card will become null and void.
