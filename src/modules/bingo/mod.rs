@@ -270,8 +270,9 @@ impl Component<Error, Postgres> for Bingo {
 
         {
             let mut data = ctx.data.write().await;
-            let messages = data.get_mut::<BingoMessages>().unwrap();
-            messages.insert(interaction.user.id, components.clone());
+            data.entry::<BingoMessages>()
+                .or_insert_with(HashMap::new)
+                .insert(interaction.user.id, components.clone());
         }
 
         interaction
