@@ -485,6 +485,11 @@ fn update_button(components: &mut [ActionRow], button_id: &str) -> bool {
                     return true;
                 }
 
+                if *style == ButtonStyle::Success {
+                    *style = ButtonStyle::Secondary;
+                    return false;
+                }
+
                 if *style == ButtonStyle::Secondary {
                     *style = ButtonStyle::Primary;
                 }
