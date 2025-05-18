@@ -165,8 +165,7 @@ impl SlashCommand<Error, Postgres> for Bingo {
                 ctx,
                 CreateMessage::new().embed(embed).components(components()),
             )
-            .await
-            .unwrap();
+            .await?;
 
         {
             let mut data = ctx.data.write().await;
