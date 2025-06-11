@@ -53,6 +53,9 @@ impl SlashCommand<Error, Postgres> for Clans {
         let clan_2_button =
             CreateButton::new_link("https://www.bungie.net/en/ClanV2?groupid=5312437")
                 .label("Join \"INGLORIOUS BRADSTERS 2\"");
+        let clan_3_button =
+            CreateButton::new_link("https://www.bungie.net/en/ClanV2?groupid=5329578")
+                .label("Join \"Inglorious Bradsters 3\"");
 
         interaction
             .channel_id
@@ -61,7 +64,8 @@ impl SlashCommand<Error, Postgres> for Clans {
                 CreateMessage::new()
                     .embed(embed)
                     .button(clan_1_button)
-                    .button(clan_2_button),
+                    .button(clan_2_button)
+                    .button(clan_3_button),
             )
             .await
             .unwrap();
