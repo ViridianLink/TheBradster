@@ -8,8 +8,18 @@ use zayden_core::SlashCommand;
 
 use crate::{Error, Result};
 
-const BRADLEY: UserId = UserId::new(1);
-const SLEEPIE: UserId = UserId::new(1);
+const BRADLEY: UserId = UserId::new(381973220083105793);
+const SLIPPY_MUNCHER: UserId = UserId::new(487835762717491200);
+const REVICAL: UserId = UserId::new(421331642695811083);
+
+const SCYTHE: UserId = UserId::new(183628405592293386);
+const CHICK_WITH_ADD: UserId = UserId::new(801522823688224798);
+
+const RAVEN: UserId = UserId::new(251205752767774721);
+
+const CLAN_1: [UserId; 3] = [BRADLEY, SLIPPY_MUNCHER, REVICAL];
+const CLAN_2: [UserId; 2] = [SCYTHE, CHICK_WITH_ADD];
+const CLAN_3: [UserId; 1] = [RAVEN];
 
 pub struct Clans;
 
@@ -28,14 +38,14 @@ impl SlashCommand<Error, Postgres> for Clans {
             .description("Click one of the buttons below to join a clan. The clans have no requirements to join, however members will be removed for prolonged inactivity to make space for new members.")
             .field(
                 "The Inglorious Bradsters",
-                format!("Clan Leader: {}", BRADLEY.mention()),
+                format!("Clan Admins: {}", CLAN_1.map(|a| a.mention().to_string()).join("\n")),
                 true,
             )
             .field(
                 "INGLORIOUS BRADSTERS 2",
-                format!("Clan Leader: {}", SLEEPIE.mention()),
+                format!("Clan Admins: {}",  CLAN_2.map(|a| a.mention().to_string()).join("\n")),
                 true,
-            );
+            ).field("Inglorious Bradsters 3", format!("Clan Admins: {}",  CLAN_3.map(|a| a.mention().to_string()).join("\n")), true);
 
         let clan_1_button =
             CreateButton::new_link("https://www.bungie.net/en/ClanV2?groupid=5309021")
