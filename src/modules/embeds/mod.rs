@@ -11,8 +11,9 @@ pub use rules::Rules;
 pub use socials::Socials;
 pub use sponsors::Sponsors;
 
-pub fn register(ctx: &Context) -> [CreateCommand; 2] {
+pub fn register(ctx: &Context) -> [CreateCommand; 3] {
     [
+        Clans::register(ctx).unwrap(),
         Rules::register(ctx).unwrap(),
         Sponsors::register(ctx).unwrap(),
     ]
