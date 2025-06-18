@@ -85,7 +85,7 @@ impl SlashCommand<Error, Postgres> for Clans {
     fn register(_ctx: &Context) -> Result<CreateCommand> {
         let cmd = CreateCommand::new("clans")
             .description("Send the clans embed")
-            .default_member_permissions(Permissions::ADMINISTRATOR);
+            .default_member_permissions(Permissions::BAN_MEMBERS);
 
         Ok(cmd)
     }

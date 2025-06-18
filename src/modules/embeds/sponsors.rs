@@ -63,7 +63,7 @@ impl SlashCommand<Error, Postgres> for Sponsors {
     fn register(_ctx: &Context) -> Result<CreateCommand> {
         let cmd = CreateCommand::new("sponsors")
             .description("Send the sponsors embed")
-            .default_member_permissions(Permissions::ADMINISTRATOR);
+            .default_member_permissions(Permissions::BAN_MEMBERS);
 
         Ok(cmd)
     }
