@@ -14,11 +14,12 @@ const REVICAL: UserId = UserId::new(421331642695811083);
 
 const SCYTHE: UserId = UserId::new(183628405592293386);
 const CHICK_WITH_ADD: UserId = UserId::new(801522823688224798);
+const SLEEPIE: UserId = UserId::new(906674461506416671);
 
 const RAVEN: UserId = UserId::new(251205752767774721);
 
 const CLAN_1: [UserId; 3] = [BRADLEY, SLIPPY_MUNCHER, REVICAL];
-const CLAN_2: [UserId; 2] = [SCYTHE, CHICK_WITH_ADD];
+const CLAN_2: [UserId; 3] = [SCYTHE, CHICK_WITH_ADD, SLEEPIE];
 const CLAN_3: [UserId; 1] = [RAVEN];
 
 pub struct Clans;
