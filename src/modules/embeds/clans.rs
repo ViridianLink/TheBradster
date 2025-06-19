@@ -39,14 +39,14 @@ impl SlashCommand<Error, Postgres> for Clans {
             .description("Click one of the buttons below to join a clan. The clans have no requirements to join, however members will be removed for prolonged inactivity to make space for new members.")
             .field(
                 "The Inglorious Bradsters",
-                format!("Clan Admins: {}", CLAN_1.map(|a| a.mention().to_string()).join("\n")),
+                format!("Clan Admins: {}", CLAN_1.iter().map(|user| format!("\n{}", user.mention())).collect::<String>()),
                 true,
             )
             .field(
                 "INGLORIOUS BRADSTERS 2",
-                format!("Clan Admins: {}",  CLAN_2.map(|a| a.mention().to_string()).join("\n")),
+                format!("Clan Admins: {}",  CLAN_2.iter().map(|user| format!("\n{}", user.mention())).collect::<String>()),
                 true,
-            ).field("Inglorious Bradsters 3", format!("Clan Admins: {}",  CLAN_3.map(|a| a.mention().to_string()).join("\n")), true);
+            ).field("Inglorious Bradsters 3", format!("Clan Admins: {}",  CLAN_3.iter().map(|user| format!("\n{}", user.mention())).collect::<String>()), true);
 
         let clan_1_button =
             CreateButton::new_link("https://www.bungie.net/en/ClanV2?groupid=5309021")
