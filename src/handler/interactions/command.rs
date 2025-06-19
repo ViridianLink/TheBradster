@@ -3,7 +3,7 @@ use sqlx::PgPool;
 use zayden_core::{get_option_str, SlashCommand};
 
 use crate::modules::bingo::{Bingo, BingoConfirm};
-use crate::modules::embeds::{Rules, Sponsors};
+use crate::modules::embeds::{Clans, Rules, Sponsors};
 use crate::modules::ticket::slash_commands::TicketCommand;
 use crate::Result;
 
@@ -22,6 +22,7 @@ pub async fn interaction_command(
 
     let result = match interaction.data.name.as_str() {
         // region: embeds
+        "clans" => Clans::run(ctx, interaction, options, pool).await,
         "rules" => Rules::run(ctx, interaction, options, pool).await,
         "sponsors" => Sponsors::run(ctx, interaction, options, pool).await,
         // endregion
