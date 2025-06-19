@@ -9,10 +9,11 @@ use rand::rng;
 use rand::seq::IndexedRandom;
 use serenity::all::{
     ActionRow, ActionRowComponent, AutoArchiveDuration, ButtonKind, ButtonStyle, ChannelId,
-    ChannelType, CommandInteraction, ComponentInteraction, Context, CreateActionRow,
-    CreateAttachment, CreateButton, CreateCommand, CreateEmbed, CreateEmbedFooter,
-    CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateThread,
-    EditInteractionResponse, Mentionable, ResolvedOption, RoleId, UserId,
+    ChannelType, CommandInteraction, CommandOptionType, ComponentInteraction, Context,
+    CreateActionRow, CreateAttachment, CreateButton, CreateCommand, CreateCommandOption,
+    CreateEmbed, CreateEmbedFooter, CreateInteractionResponse, CreateInteractionResponseMessage,
+    CreateMessage, CreateThread, EditInteractionResponse, Mentionable, ResolvedOption,
+    ResolvedValue, RoleId, UserId,
 };
 use serenity::prelude::TypeMapKey;
 use sqlx::{PgPool, Postgres};
@@ -112,7 +113,7 @@ impl SlashCommand<Error, Postgres> for Bingo {
     async fn run(
         ctx: &Context,
         interaction: &CommandInteraction,
-        _options: Vec<ResolvedOption<'_>>,
+        mut options: Vec<ResolvedOption<'_>>,
         _pool: &PgPool,
     ) -> Result<()> {
         interaction.defer(ctx).await.unwrap();
@@ -131,7 +132,12 @@ impl SlashCommand<Error, Postgres> for Bingo {
             .filter(|space| space.len() > 80)
             .for_each(|space| println!("Warning: Space '{space}' is longer than 80 characters"));
 
-        let embed = CreateEmbed::new()
+        let format = match options.pop().map(|opt| opt.value) {
+            Some(ResolvedValue::String(format)) => format,
+            _ => "small",
+        };
+
+        let info_embed = CreateEmbed::new()
             .title(TITLE)
             .description(DESCRIPTION)
             .field("Your card", YOUR_CARD, false)
@@ -139,11 +145,21 @@ impl SlashCommand<Error, Postgres> for Bingo {
             .field("How to Win", HOW_TO_WIN, false)
             .field("Important Notes", NOTES, false);
 
+        interaction
+            .user
+            .direct_message(ctx, CreateMessage::new().embed(info_embed))
+            .await
+            .unwrap();
+
+        let spaces = rand_spaces();
+
         let msg = interaction
             .user
             .direct_message(
                 ctx,
-                CreateMessage::new().embed(embed).components(components()),
+                CreateMessage::new()
+                    .embed(live_embed(None, spaces.clone()))
+                    .components(components(format, spaces)),
             )
             .await?;
 
@@ -167,7 +183,13 @@ impl SlashCommand<Error, Postgres> for Bingo {
     }
 
     fn register(_ctx: &Context) -> Result<CreateCommand> {
-        let cmd = CreateCommand::new("bingo").description("Test Command");
+        let cmd = CreateCommand::new("bingo")
+            .description("PLACEHOLDER")
+            .add_option(
+                CreateCommandOption::new(CommandOptionType::String, "style", "PLACEHOLDER")
+                    .add_string_choice("New", "small")
+                    .add_string_choice("Old", "big"),
+            );
 
         Ok(cmd)
     }
@@ -177,6 +199,20 @@ impl SlashCommand<Error, Postgres> for Bingo {
 impl Component<Error, Postgres> for Bingo {
     async fn run(ctx: &Context, interaction: &ComponentInteraction, _pool: &PgPool) -> Result<()> {
         let mut components = interaction.message.components.clone();
+
+        let spaces = interaction
+            .message
+            .as_ref()
+            .embeds
+            .first()
+            .unwrap()
+            .fields
+            .last()
+            .unwrap()
+            .value
+            .split("\n")
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>();
 
         let changed = update_button(&mut components, &interaction.data.custom_id);
         let (condition, labels) = if changed {
@@ -210,11 +246,22 @@ impl Component<Error, Postgres> for Bingo {
                 .await
                 .unwrap();
 
+            let spaces = labels
+                .into_iter()
+                .map(|label| {
+                    *spaces
+                        .iter()
+                        .find(|&&space| space.starts_with(&label))
+                        .unwrap()
+                })
+                .map(|space| format!("{}\n", &space[3..]))
+                .collect::<String>();
+
             let embed = CreateEmbed::new()
                 .title("BINGO")
                 .field("Win Condition", format!("{condition:?}"), false)
-                .field("Values", labels.join("\n"), false)
-                .field("Bingo Card", emoji_card(&components), false)
+                .field("Values", spaces, false)
+                .field("Bingo Card", emoji_card(Some(&components)), false)
                 .footer(CreateEmbedFooter::new(
                     "Use `/bingoconfirm` to accept this win.",
                 ));
@@ -259,25 +306,30 @@ impl Component<Error, Postgres> for Bingo {
             .create_response(
                 ctx,
                 CreateInteractionResponse::UpdateMessage(
-                    CreateInteractionResponseMessage::new().components(
-                        components
-                            .into_iter()
-                            .map(|row| {
-                                let buttons = row
-                                    .components
-                                    .into_iter()
-                                    .map(|component| match component {
-                                        ActionRowComponent::Button(button) => {
-                                            CreateButton::from(button)
-                                        }
-                                        _ => unreachable!(),
-                                    })
-                                    .collect::<Vec<_>>();
+                    CreateInteractionResponseMessage::new()
+                        .embed(live_embed(
+                            Some(&components),
+                            spaces.into_iter().map(|s| String::from(&s[3..])).collect(),
+                        ))
+                        .components(
+                            components
+                                .into_iter()
+                                .map(|row| {
+                                    let buttons = row
+                                        .components
+                                        .into_iter()
+                                        .map(|component| match component {
+                                            ActionRowComponent::Button(button) => {
+                                                CreateButton::from(button)
+                                            }
+                                            _ => unreachable!(),
+                                        })
+                                        .collect::<Vec<_>>();
 
-                                CreateActionRow::Buttons(buttons)
-                            })
-                            .collect(),
-                    ),
+                                    CreateActionRow::Buttons(buttons)
+                                })
+                                .collect(),
+                        ),
                 ),
             )
             .await
@@ -299,25 +351,31 @@ impl TypeMapKey for BingoWinState {
     type Value = Vec<GridCondition>;
 }
 
-fn components() -> Vec<CreateActionRow> {
-    let mut rand_spaces = SPACES
+fn rand_spaces() -> Vec<String> {
+    SPACES
         .choose_multiple(&mut rng(), 24)
-        .map(|label| label.chars().take(80).collect::<String>());
+        .map(|label| label.chars().take(80).collect::<String>())
+        .collect()
+}
 
+fn components(format: &str, mut spaces: Vec<String>) -> Vec<CreateActionRow> {
     let mut components = Vec::with_capacity(5);
+
     for r in 0..5 {
         let mut row = Vec::with_capacity(5);
 
         for c in 0..5 {
-            let button = CreateButton::new(format!("bingo_{r}{c}")).style(ButtonStyle::Secondary);
+            let mut button =
+                CreateButton::new(format!("bingo_{r}{c}")).style(ButtonStyle::Secondary);
 
-            let label = if r == 2 && c == 2 {
-                String::from("FREE SPACE")
-            } else {
-                rand_spaces.next().unwrap()
+            button = match format {
+                _ if r == 2 && c == 2 => button.emoji('🆓'),
+                "big" => button.label(spaces.pop().unwrap()),
+                "small" => button.label(format!("{r}{c}")),
+                _ => unreachable!("Invalid format"),
             };
 
-            row.push(button.label(label));
+            row.push(button);
         }
 
         components.push(CreateActionRow::Buttons(row));
@@ -326,8 +384,13 @@ fn components() -> Vec<CreateActionRow> {
     components
 }
 
-fn emoji_card(grid: &[ActionRow]) -> String {
+fn emoji_card(grid: Option<&[ActionRow]>) -> String {
     let mut s = String::new();
+
+    let grid = match grid {
+        Some(grid) => grid,
+        None => return String::from("⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛"),
+    };
 
     for row in grid {
         for component in &row.components {
@@ -351,6 +414,30 @@ fn emoji_card(grid: &[ActionRow]) -> String {
     }
 
     s
+}
+
+fn live_embed(components: Option<&[ActionRow]>, mut spaces: Vec<String>) -> CreateEmbed {
+    spaces.reverse();
+
+    let card = emoji_card(components);
+
+    let mut spaces_str = String::new();
+
+    for i in 0..5 {
+        for j in 0..5 {
+            if i == 2 && j == 2 {
+                continue;
+            }
+
+            spaces_str.push_str(&format!("{i}{j}: {}\n", spaces.pop().unwrap()));
+        }
+
+        spaces_str.push('\n');
+    }
+
+    CreateEmbed::new()
+        .field("Card", card, false)
+        .field("Spaces", spaces_str, false)
 }
 
 fn center_pad(text: &str, width: usize) -> String {

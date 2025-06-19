@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use serenity::all::{
-    CommandInteraction, Context, CreateCommand, EditInteractionResponse, Permissions,
-    ResolvedOption,
+    ChannelId, CommandInteraction, CommandOptionType, Context, CreateCommand, CreateCommandOption,
+    CreateMessage, EditInteractionResponse, Mentionable, Permissions, ResolvedOption,
+    ResolvedValue,
 };
 use sqlx::{PgPool, Postgres};
 use zayden_core::SlashCommand;
@@ -10,6 +11,8 @@ use crate::{Error, Result};
 
 use super::BingoWinState;
 
+const CHANNEL_ID: ChannelId = ChannelId::new(1267859696132554817);
+
 pub struct BingoConfirm;
 
 #[async_trait]
@@ -17,7 +20,7 @@ impl SlashCommand<Error, Postgres> for BingoConfirm {
     async fn run(
         ctx: &Context,
         interaction: &CommandInteraction,
-        _options: Vec<ResolvedOption<'_>>,
+        mut options: Vec<ResolvedOption<'_>>,
         _pool: &PgPool,
     ) -> Result<()> {
         interaction.defer(ctx).await.unwrap();
@@ -57,13 +60,29 @@ impl SlashCommand<Error, Postgres> for BingoConfirm {
             .await
             .unwrap();
 
+        let ResolvedValue::User(user, _) = options.pop().unwrap().value else {
+            unreachable!("Option is required")
+        };
+
+        CHANNEL_ID
+            .send_message(
+                ctx,
+                CreateMessage::new().content(format!("Bingo Winner: {}", user.mention())),
+            )
+            .await
+            .unwrap();
+
         Ok(())
     }
 
     fn register(_ctx: &Context) -> Result<CreateCommand> {
         let cmd = CreateCommand::new("bingoconfirm")
             .description("Confirm the win for the bingo card")
-            .default_member_permissions(Permissions::MOVE_MEMBERS);
+            .default_member_permissions(Permissions::MOVE_MEMBERS)
+            .add_option(
+                CreateCommandOption::new(CommandOptionType::User, "winner", "The bingo winner")
+                    .required(true),
+            );
 
         Ok(cmd)
     }
