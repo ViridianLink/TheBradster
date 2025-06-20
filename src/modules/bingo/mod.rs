@@ -1,10 +1,11 @@
 mod confirm;
+mod model;
+use chrono::Utc;
 pub use confirm::BingoConfirm;
 
 mod spaces;
 use spaces::SPACES;
 
-use std::collections::HashMap;
 use std::str::FromStr;
 
 use async_trait::async_trait;
@@ -16,12 +17,13 @@ use serenity::all::{
     CreateActionRow, CreateAttachment, CreateButton, CreateCommand, CreateCommandOption,
     CreateEmbed, CreateEmbedFooter, CreateInteractionResponse, CreateInteractionResponseMessage,
     CreateMessage, CreateThread, EditInteractionResponse, Mentionable, Permissions, ResolvedOption,
-    ResolvedValue, RoleId, UserId,
+    ResolvedValue, RoleId,
 };
 use serenity::prelude::TypeMapKey;
 use sqlx::{PgPool, Postgres};
 use zayden_core::{Component, SlashCommand};
 
+use crate::modules::bingo::model::{BingoRow, BingoTable};
 use crate::{Error, Result};
 
 const TITLE: &str = "🎉 Bingo Card 🎉";
@@ -61,18 +63,17 @@ impl SlashCommand<Error, Postgres> for Bingo {
         ctx: &Context,
         interaction: &CommandInteraction,
         mut options: Vec<ResolvedOption<'_>>,
-        _pool: &PgPool,
+        pool: &PgPool,
     ) -> Result<()> {
         interaction.defer(ctx).await.unwrap();
 
-        {
-            let data = ctx.data.read().await;
-            if let Some(messages) = data.get::<BingoMessages>() {
-                if messages.contains_key(&interaction.user.id) {
-                    return Err(Error::BingoCardAlreadySent);
-                }
+        let mut row = match BingoTable::row(pool, interaction.user.id).await {
+            Ok(Some(row)) if row.day == Utc::now().date_naive() => {
+                return Err(Error::BingoCardAlreadySent)
             }
-        }
+            Ok(Some(row)) => row,
+            _ => BingoRow::new(interaction.user.id),
+        };
 
         SPACES
             .iter()
@@ -100,7 +101,9 @@ impl SlashCommand<Error, Postgres> for Bingo {
 
         let spaces = rand_spaces();
 
-        let msg = interaction
+        row.spaces = spaces.clone();
+
+        interaction
             .user
             .direct_message(
                 ctx,
@@ -110,12 +113,7 @@ impl SlashCommand<Error, Postgres> for Bingo {
             )
             .await?;
 
-        {
-            let mut data = ctx.data.write().await;
-            data.entry::<BingoMessages>()
-                .or_insert_with(HashMap::new)
-                .insert(interaction.user.id, msg.components);
-        }
+        BingoTable::insert(pool, row).await.unwrap();
 
         interaction
             .edit_response(
@@ -145,22 +143,26 @@ impl SlashCommand<Error, Postgres> for Bingo {
 
 #[async_trait]
 impl Component<Error, Postgres> for Bingo {
-    async fn run(ctx: &Context, interaction: &ComponentInteraction, _pool: &PgPool) -> Result<()> {
+    async fn run(ctx: &Context, interaction: &ComponentInteraction, pool: &PgPool) -> Result<()> {
         let mut components = interaction.message.components.clone();
 
-        let spaces = interaction
-            .message
-            .as_ref()
-            .embeds
-            .first()
-            .unwrap()
-            .fields
-            .last()
-            .unwrap()
-            .value
-            .split("\n")
-            .filter(|s| !s.is_empty())
-            .collect::<Vec<_>>();
+        let spaces = match BingoTable::spaces(pool, interaction.user.id).await {
+            Ok(Some(spaces)) => spaces,
+            _ => interaction
+                .message
+                .as_ref()
+                .embeds
+                .first()
+                .unwrap()
+                .fields
+                .last()
+                .unwrap()
+                .value
+                .split("\n")
+                .filter(|s| !s.is_empty())
+                .map(String::from)
+                .collect::<Vec<_>>(),
+        };
 
         let changed = update_button(&mut components, &interaction.data.custom_id);
         let (condition, labels) = if changed {
@@ -197,9 +199,9 @@ impl Component<Error, Postgres> for Bingo {
             let spaces = labels
                 .into_iter()
                 .map(|label| {
-                    *spaces
+                    spaces
                         .iter()
-                        .find(|&&space| space.starts_with(&label))
+                        .find(|&space| space.starts_with(&label))
                         .unwrap()
                 })
                 .map(|space| format!("{}\n", &space[3..]))
@@ -243,13 +245,6 @@ impl Component<Error, Postgres> for Bingo {
                 .unwrap();
         }
 
-        {
-            let mut data = ctx.data.write().await;
-            data.entry::<BingoMessages>()
-                .or_insert_with(HashMap::new)
-                .insert(interaction.user.id, components.clone());
-        }
-
         interaction
             .create_response(
                 ctx,
@@ -285,12 +280,6 @@ impl Component<Error, Postgres> for Bingo {
 
         Ok(())
     }
-}
-
-struct BingoMessages;
-
-impl TypeMapKey for BingoMessages {
-    type Value = HashMap<UserId, Vec<ActionRow>>;
 }
 
 pub struct BingoWinState;
