@@ -1,6 +1,9 @@
 mod confirm;
 pub use confirm::BingoConfirm;
 
+mod spaces;
+use spaces::SPACES;
+
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -12,7 +15,7 @@ use serenity::all::{
     ChannelType, CommandInteraction, CommandOptionType, ComponentInteraction, Context,
     CreateActionRow, CreateAttachment, CreateButton, CreateCommand, CreateCommandOption,
     CreateEmbed, CreateEmbedFooter, CreateInteractionResponse, CreateInteractionResponseMessage,
-    CreateMessage, CreateThread, EditInteractionResponse, Mentionable, ResolvedOption,
+    CreateMessage, CreateThread, EditInteractionResponse, Mentionable, Permissions, ResolvedOption,
     ResolvedValue, RoleId, UserId,
 };
 use serenity::prelude::TypeMapKey;
@@ -20,62 +23,6 @@ use sqlx::{PgPool, Postgres};
 use zayden_core::{Component, SlashCommand};
 
 use crate::{Error, Result};
-
-const SPACES: [&str; 53] = [
-    "Someone starts an encounter before the team is ready",
-    "Forgets to rally",
-    "Brad vs number 1 hater",
-    "Lord of Wolves is used",
-    "'This doesn't seem that hard'",
-    "Brad misses his t-crash",
-    "Chat claims it's not blind",
-    "Finished an encounter without hints/sherpa",
-    "Brad dodges IRL",
-    "Brad throws something across the room",
-    "Voice crack",
-    "Someone disconnects",
-    "Someone blows themself up",
-    "Brad wears glasses",
-    "Queen's Breaker is used",
-    "Brad says the team is throwing",
-    "Brad yells at the mods",
-    "'Big Shaq boom'",
-    "Cigarette crayon",
-    "Div used",
-    "Brad rages and switches to bolt charge",
-    "Brad talks about hating hunters",
-    "Brad tells a warlock to get on well",
-    "'I'm stuck!'",
-    "Smokes a crayon",
-    "Disrupts the nodes while running",
-    "Launchpad malfunction. (Wrong floor, gets killed, etc.)",
-    "There goes flawless",
-    "What this thing?",
-    "OH I THINK I GET IT",
-    "Gets a hint",
-    "Gets Sherpa'd",
-    "Launchpad gets called a cheater",
-    "Launchpad asks to see someone in his office",
-    "Brad messes up his camera",
-    "Clean dick' is said",
-    "Wiped by enrage/final stand",
-    "Wipes to timer",
-    "Secret chest found",
-    "Someone dies in transition",
-    "5 minutes or more to open a friendship door",
-    "Bypass jumping puzzle",
-    "2-3 takes more than 30 minutes",
-    "Tormentor launches someone off the map",
-    "Tries to kill an enemy with the wrong buff",
-    "No Anti Barrier after the 1st wipe",
-    "Incorrect callouts",
-    "Attempts to use the  wrong damage plate",
-    "Nez launches a member of the team off",
-    "Nez suppresses a super",
-    "Makes the wrong refuge",
-    "Makes no refuge",
-    "Reference made about the gaze",
-];
 
 const TITLE: &str = "🎉 Bingo Card 🎉";
 const DESCRIPTION: &str = "Below is the key information for taking part in the event. If you have any further questions please contact a mod in the Discord server.";
@@ -129,8 +76,8 @@ impl SlashCommand<Error, Postgres> for Bingo {
 
         SPACES
             .iter()
-            .filter(|space| space.len() > 80)
-            .for_each(|space| println!("Warning: Space '{space}' is longer than 80 characters"));
+            .filter(|space| space.len() > 40) // 80
+            .for_each(|space| println!("Warning: Space '{space}' is longer than 40 characters"));
 
         let format = match options.pop().map(|opt| opt.value) {
             Some(ResolvedValue::String(format)) => format,
@@ -185,6 +132,7 @@ impl SlashCommand<Error, Postgres> for Bingo {
     fn register(_ctx: &Context) -> Result<CreateCommand> {
         let cmd = CreateCommand::new("bingo")
             .description("PLACEHOLDER")
+            .default_member_permissions(Permissions::MOVE_MEMBERS)
             .add_option(
                 CreateCommandOption::new(CommandOptionType::String, "style", "PLACEHOLDER")
                     .add_string_choice("New", "small")
