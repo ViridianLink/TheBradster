@@ -2,7 +2,6 @@ use serenity::all::{CommandInteraction, Context, EditInteractionResponse};
 use sqlx::PgPool;
 use zayden_core::{get_option_str, SlashCommand};
 
-use crate::modules::bingo::{Bingo, BingoConfirm};
 use crate::modules::embeds::{Clans, Rules, Sponsors};
 use crate::modules::ticket::slash_commands::TicketCommand;
 use crate::Result;
@@ -27,8 +26,6 @@ pub async fn interaction_command(
         "sponsors" => Sponsors::run(ctx, interaction, options, pool).await,
         // endregion
         "ticket" => TicketCommand::run(ctx, interaction, options, pool).await,
-        "bingo" => Bingo::run(ctx, interaction, options, pool).await,
-        "bingoconfirm" => BingoConfirm::run(ctx, interaction, options, pool).await,
         _ => {
             println!("Unknown command: {}", interaction.data.name);
             Ok(())
