@@ -8,17 +8,15 @@ zayden-core = { git = "https://github.com/zayden-bot/slash-command-core.git", br
 ticket = { git = "https://github.com/zayden-bot/ticket.git", branch = "main" }
 
 async-trait = { version = "*", default-features = false }
-chrono = { version = "*", default-features = false }
 dotenvy = { version = "*", default-features = false }
-serenity = { version = "*", default-features = false }
+serenity = { version = "*", default-features = false, features = [
+    "rustls_backend",
+    "model",
+] }
 sqlx = { version = "*", default-features = false, features = [
     "runtime-tokio",
     "postgres",
-    "chrono",
 ] }
 tokio = { version = "*", default-features = false, features = [
-    "macros",
     "rt-multi-thread",
 ] }
-const_format = { version = "*", default-features = false }
-rand = { version = "*", features = ["thread_rng"], default-features = false }

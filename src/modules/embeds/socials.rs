@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use const_format::formatcp;
 use serenity::all::{
     CommandInteraction, Context, CreateButton, CreateCommand, CreateEmbed, CreateMessage,
     EditInteractionResponse, Permissions, ResolvedOption,
@@ -18,14 +17,6 @@ const TIKTOK: &str = "https://www.tiktok.com/@bradsterofficial";
 const STEAMLABS_AFFILIATE: &str =
     "https://streamlabs.com/refer/sl_id_5e72f8ba-9b70-3d08-8b48-eccb8322ee9a-8662-10?t=2";
 
-const DESCRIPTION: &str = formatcp!(
-    r#"Instagram: [BradleyTheBradster]({INSTAGRAM})
-Twitch: [BradleyTheBradster]({TWITCH})
-Youtube: [BradleyTheBradster]({YOUTUBE})
-Twitter: [BradTheBradster]({TWITTER})
-TikTok: [BradsterOfficial]({TIKTOK})"#
-);
-
 pub struct Socials;
 
 #[async_trait]
@@ -38,7 +29,13 @@ impl SlashCommand<Error, Postgres> for Socials {
     ) -> Result<()> {
         interaction.defer_ephemeral(ctx).await.unwrap();
 
-        let embed = CreateEmbed::new().title("Socials").description(DESCRIPTION);
+        let embed = CreateEmbed::new().title("Socials").description(format!(
+            r#"Instagram: [BradleyTheBradster]({INSTAGRAM})
+Twitch: [BradleyTheBradster]({TWITCH})
+Youtube: [BradleyTheBradster]({YOUTUBE})
+Twitter: [BradTheBradster]({TWITTER})
+TikTok: [BradsterOfficial]({TIKTOK})"#
+        ));
 
         let instagram = CreateButton::new_link(INSTAGRAM).label("Instagram");
         let twitch = CreateButton::new_link(TWITCH).label("Twitch");

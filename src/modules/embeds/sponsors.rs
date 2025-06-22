@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use const_format::formatcp;
 use serenity::all::{
     CommandInteraction, Context, CreateButton, CreateCommand, CreateEmbed, CreateMessage,
     EditInteractionResponse, Permissions, ResolvedOption,
@@ -11,12 +10,6 @@ use crate::{Error, Result};
 
 const IPVANISH: &str = "https://affiliate.ipvanish.com/aff_c?offer_id=1&aff_id=3871&url_id=913";
 const STARFORGE: &str = "https://starforgesystems.pxf.io/55K1qL";
-
-const DESCRIPTION: &str = formatcp!(
-    "Get up to 83% off IPVanish at {IPVANISH}
-
-    Starforge Systems - The Best PCs in the Universe. Get yours today {STARFORGE}"
-);
 
 pub struct Sponsors;
 
@@ -32,7 +25,11 @@ impl SlashCommand<Error, Postgres> for Sponsors {
 
         let embed = CreateEmbed::new()
             .title("Sponsors")
-            .description(DESCRIPTION).image("https://cdn.discordapp.com/attachments/1267859696132554817/1367265346612105256/StarforgeV2_TwitchPanel4x5-min.webp?ex=6813f495&is=6812a315&hm=9cee336c18b60f9727970826119b22af286779792a9f08e252b62716ad632427&");
+            .description(format!(
+    "Get up to 83% off IPVanish at {IPVANISH}
+
+    Starforge Systems - The Best PCs in the Universe. Get yours today {STARFORGE}"
+)).image("https://cdn.discordapp.com/attachments/1267859696132554817/1367265346612105256/StarforgeV2_TwitchPanel4x5-min.webp?ex=6813f495&is=6812a315&hm=9cee336c18b60f9727970826119b22af286779792a9f08e252b62716ad632427&");
 
         let instagram = CreateButton::new_link(IPVANISH).label("IPVanish");
         let twitch = CreateButton::new_link(STARFORGE).label("Starforge");
