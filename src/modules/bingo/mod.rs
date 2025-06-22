@@ -16,7 +16,7 @@ use serenity::all::{
     ChannelType, CommandInteraction, CommandOptionType, ComponentInteraction, Context,
     CreateActionRow, CreateAttachment, CreateButton, CreateCommand, CreateCommandOption,
     CreateEmbed, CreateEmbedFooter, CreateInteractionResponse, CreateInteractionResponseMessage,
-    CreateMessage, CreateThread, EditInteractionResponse, Mentionable, Permissions, ResolvedOption,
+    CreateMessage, CreateThread, EditInteractionResponse, Mentionable, ResolvedOption,
     ResolvedValue, RoleId,
 };
 use serenity::prelude::TypeMapKey;
@@ -96,8 +96,7 @@ impl SlashCommand<Error, Postgres> for Bingo {
         interaction
             .user
             .direct_message(ctx, CreateMessage::new().embed(info_embed))
-            .await
-            .unwrap();
+            .await?;
 
         let spaces = rand_spaces();
 
@@ -130,7 +129,6 @@ impl SlashCommand<Error, Postgres> for Bingo {
     fn register(_ctx: &Context) -> Result<CreateCommand> {
         let cmd = CreateCommand::new("bingo")
             .description("PLACEHOLDER")
-            .default_member_permissions(Permissions::MOVE_MEMBERS)
             .add_option(
                 CreateCommandOption::new(CommandOptionType::String, "style", "PLACEHOLDER")
                     .add_string_choice("New", "small")
@@ -160,6 +158,7 @@ impl Component<Error, Postgres> for Bingo {
                 .value
                 .split("\n")
                 .filter(|s| !s.is_empty())
+                .map(|s| &s[3..])
                 .map(String::from)
                 .collect::<Vec<_>>(),
         };
@@ -198,13 +197,8 @@ impl Component<Error, Postgres> for Bingo {
 
             let spaces = labels
                 .into_iter()
-                .map(|label| {
-                    spaces
-                        .iter()
-                        .find(|&space| space.starts_with(&label))
-                        .unwrap()
-                })
-                .map(|space| format!("{}\n", &space[3..]))
+                .map(|label| space_from_label(label, &spaces))
+                .map(|space| format!("{}\n", space))
                 .collect::<String>();
 
             let embed = CreateEmbed::new()
@@ -250,10 +244,7 @@ impl Component<Error, Postgres> for Bingo {
                 ctx,
                 CreateInteractionResponse::UpdateMessage(
                     CreateInteractionResponseMessage::new()
-                        .embed(live_embed(
-                            Some(&components),
-                            spaces.into_iter().map(|s| String::from(&s[3..])).collect(),
-                        ))
+                        .embed(live_embed(Some(&components), spaces))
                         .components(
                             components
                                 .into_iter()
@@ -279,6 +270,38 @@ impl Component<Error, Postgres> for Bingo {
             .unwrap();
 
         Ok(())
+    }
+}
+
+fn space_from_label(label: String, spaces: &[String]) -> &str {
+    if label == "FREE" {
+        return "FREE";
+    }
+
+    if label.len() != 2 {
+        return spaces
+            .iter()
+            .find(|&space| space.starts_with(&label))
+            .unwrap();
+    }
+
+    let mut chars = label.chars();
+    let r_char = chars.next().unwrap();
+    let c_char = chars.next().unwrap();
+
+    if let (Some(r), Some(c)) = (r_char.to_digit(10), c_char.to_digit(10)) {
+        let mut index = r * 5 + c;
+
+        if r > 2 || (r == 2 && c > 1) {
+            index -= 1;
+        }
+
+        spaces.get(index as usize).unwrap()
+    } else {
+        spaces
+            .iter()
+            .find(|&space| space.starts_with(&label))
+            .unwrap()
     }
 }
 
@@ -461,7 +484,10 @@ fn get_button_style(grid: &[ActionRow], r: u8, c: u8) -> ButtonStyle {
 
 fn get_button_label(grid: &[ActionRow], r: u8, c: u8) -> &str {
     match &grid[r as usize].components[c as usize] {
-        ActionRowComponent::Button(button) => button.label.as_deref().unwrap(),
+        ActionRowComponent::Button(button) => match button.label.as_deref() {
+            Some(label) => label,
+            None => "FREE",
+        },
         _ => unreachable!("Expected Button component at ({}, {})", r, c),
     }
 }
@@ -528,7 +554,6 @@ impl FromStr for GridCondition {
             }
         } else if s.starts_with("ColumnSuccess(") && s.ends_with(')') {
             let inner = &s[14..s.len() - 1];
-            println!("inner: {inner}");
             match inner.parse::<u8>() {
                 Ok(val) => Ok(GridCondition::ColumnSuccess(val)),
                 Err(_) => Err(()),
