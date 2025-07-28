@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use serenity::all::{
-    CommandInteraction, Context, CreateButton, CreateCommand, CreateEmbed, CreateMessage,
-    EditInteractionResponse, Mentionable, Permissions, ResolvedOption, UserId,
+    CommandInteraction, Context, CreateButton, CreateCommand, CreateEmbed,
+    CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, Mentionable,
+    Permissions, ResolvedOption, UserId,
 };
 use sqlx::{PgPool, Postgres};
 use zayden_core::SlashCommand;
@@ -35,8 +36,6 @@ impl SlashCommand<Error, Postgres> for Clans {
         _options: Vec<ResolvedOption<'_>>,
         _pool: &PgPool,
     ) -> Result<()> {
-        interaction.defer_ephemeral(ctx).await.unwrap();
-
         let embed = CreateEmbed::new()
             .title("The Inglorious Bradsters")
             .description("Click one of the buttons below to join a clan. The clans have no requirements to join, however members will be removed for prolonged inactivity to make space for new members.")
@@ -64,7 +63,7 @@ impl SlashCommand<Error, Postgres> for Clans {
         interaction
             .channel_id
             .send_message(
-                ctx,
+                &ctx.http,
                 CreateMessage::new()
                     .embed(embed)
                     .button(clan_1_button)
@@ -75,9 +74,13 @@ impl SlashCommand<Error, Postgres> for Clans {
             .unwrap();
 
         interaction
-            .edit_response(
-                ctx,
-                EditInteractionResponse::new().content("Clans embed sent!"),
+            .create_response(
+                &ctx.http,
+                CreateInteractionResponse::Message(
+                    CreateInteractionResponseMessage::new()
+                        .content("Clans embed sent!")
+                        .ephemeral(true),
+                ),
             )
             .await
             .unwrap();
@@ -85,7 +88,7 @@ impl SlashCommand<Error, Postgres> for Clans {
         Ok(())
     }
 
-    fn register(_ctx: &Context) -> Result<CreateCommand> {
+    fn register(_ctx: &Context) -> Result<CreateCommand<'_>> {
         let cmd = CreateCommand::new("clans")
             .description("Send the clans embed")
             .default_member_permissions(Permissions::BAN_MEMBERS);

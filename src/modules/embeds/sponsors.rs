@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use serenity::all::{
-    CommandInteraction, Context, CreateButton, CreateCommand, CreateEmbed, CreateMessage,
-    EditInteractionResponse, Permissions, ResolvedOption,
+    CommandInteraction, Context, CreateButton, CreateCommand, CreateEmbed,
+    CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, Permissions,
+    ResolvedOption,
 };
 use sqlx::{PgPool, Postgres};
 use zayden_core::SlashCommand;
@@ -21,8 +22,6 @@ impl SlashCommand<Error, Postgres> for Sponsors {
         _options: Vec<ResolvedOption<'_>>,
         _pool: &PgPool,
     ) -> Result<()> {
-        interaction.defer_ephemeral(ctx).await.unwrap();
-
         let embed = CreateEmbed::new()
             .title("Sponsors")
             .description(format!(
@@ -37,7 +36,7 @@ impl SlashCommand<Error, Postgres> for Sponsors {
         interaction
             .channel_id
             .send_message(
-                ctx,
+                &ctx.http,
                 CreateMessage::new()
                     .embed(embed)
                     .button(instagram)
@@ -47,9 +46,13 @@ impl SlashCommand<Error, Postgres> for Sponsors {
             .unwrap();
 
         interaction
-            .edit_response(
-                ctx,
-                EditInteractionResponse::new().content("Sponsors embed sent!"),
+            .create_response(
+                &ctx.http,
+                CreateInteractionResponse::Message(
+                    CreateInteractionResponseMessage::new()
+                        .content("Sponsors embed sent!")
+                        .ephemeral(true),
+                ),
             )
             .await
             .unwrap();
@@ -57,7 +60,7 @@ impl SlashCommand<Error, Postgres> for Sponsors {
         Ok(())
     }
 
-    fn register(_ctx: &Context) -> Result<CreateCommand> {
+    fn register(_ctx: &Context) -> Result<CreateCommand<'_>> {
         let cmd = CreateCommand::new("sponsors")
             .description("Send the sponsors embed")
             .default_member_permissions(Permissions::BAN_MEMBERS);

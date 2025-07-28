@@ -1,10 +1,11 @@
 use serenity::all::{CommandInteraction, Context, EditInteractionResponse};
 use sqlx::PgPool;
-use zayden_core::{get_option_str, SlashCommand};
+use zayden_core::{SlashCommand, get_option_str};
 
-use crate::modules::embeds::{Clans, Rules, Sponsors};
-use crate::modules::ticket::slash_commands::TicketCommand;
 use crate::Result;
+use crate::modules::embeds::{Clans, Rules, Sponsors};
+use crate::modules::misc::Misc;
+use crate::modules::ticket::slash_commands::TicketCommand;
 
 pub async fn interaction_command(
     ctx: &Context,
@@ -25,7 +26,9 @@ pub async fn interaction_command(
         "rules" => Rules::run(ctx, interaction, options, pool).await,
         "sponsors" => Sponsors::run(ctx, interaction, options, pool).await,
         // endregion
+        "misc" => Misc::run(ctx, interaction, options, pool).await,
         "ticket" => TicketCommand::run(ctx, interaction, options, pool).await,
+
         _ => {
             println!("Unknown command: {}", interaction.data.name);
             Ok(())
@@ -35,10 +38,10 @@ pub async fn interaction_command(
     if let Err(e) = result {
         let msg = e.to_string();
 
-        let _ = interaction.defer_ephemeral(ctx).await;
+        let _ = interaction.defer_ephemeral(&ctx.http).await;
 
         interaction
-            .edit_response(ctx, EditInteractionResponse::new().content(msg))
+            .edit_response(&ctx.http, EditInteractionResponse::new().content(msg))
             .await
             .unwrap();
     }

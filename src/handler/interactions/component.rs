@@ -2,14 +2,15 @@ use serenity::all::ComponentInteraction;
 use serenity::all::Context;
 use serenity::all::EditInteractionResponse;
 use sqlx::PgPool;
+use zayden_core::Component;
 
-use crate::modules::ticket::Ticket;
 use crate::Result;
+use crate::modules::ticket::Ticket;
 
 pub async fn interaction_component(
     ctx: &Context,
     interaction: &ComponentInteraction,
-    _pool: &PgPool,
+    pool: &PgPool,
 ) -> Result<()> {
     println!(
         "{} ran component: {} - {}",
@@ -17,8 +18,10 @@ pub async fn interaction_component(
     );
 
     let result = match interaction.data.custom_id.as_str() {
-        "ticket_create" => Ticket::ticket_create(ctx, interaction).await,
-        "support_close" => Ticket::support_close(ctx, interaction).await,
+        id if id.starts_with("ticket") || id.starts_with("support") => {
+            Ticket::run(ctx, interaction, pool).await
+        }
+
         _ => {
             println!("Unknown component: {}", interaction.data.custom_id);
             return Ok(());
@@ -28,10 +31,10 @@ pub async fn interaction_component(
     if let Err(e) = result {
         let msg = e.to_string();
 
-        let _ = interaction.defer_ephemeral(ctx).await;
+        let _ = interaction.defer_ephemeral(&ctx.http).await;
 
         interaction
-            .edit_response(ctx, EditInteractionResponse::new().content(msg))
+            .edit_response(&ctx.http, EditInteractionResponse::new().content(msg))
             .await
             .unwrap();
     }

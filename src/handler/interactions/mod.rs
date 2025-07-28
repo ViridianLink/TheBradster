@@ -16,7 +16,7 @@ use modal::interaction_modal;
 impl Handler {
     pub(super) async fn interaction_create(
         ctx: &Context,
-        interaction: Interaction,
+        interaction: &Interaction,
         pool: &PgPool,
     ) -> Result<()> {
         match &interaction {

@@ -77,8 +77,8 @@ impl SlashCommand<Error, Postgres> for Bingo {
 
         SPACES
             .iter()
-            .filter(|space| space.len() > 40) // 80
-            .for_each(|space| println!("Warning: Space '{space}' is longer than 40 characters"));
+            .filter(|space| space.len() > 38) // 38 recommended, 80 max
+            .for_each(|space| println!("Warning: Space '{space}' is longer than 38 characters"));
 
         let format = match options.pop().map(|opt| opt.value) {
             Some(ResolvedValue::String(format)) => format,

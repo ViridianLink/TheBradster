@@ -2,46 +2,53 @@ mod interactions;
 mod ready;
 
 use async_trait::async_trait;
-use serenity::all::{Event, InteractionCreateEvent, RawEventHandler};
+use serenity::all::{EventHandler, FullEvent};
 use serenity::model::prelude::Interaction;
 use serenity::prelude::Context;
+use tokio::sync::RwLock;
 
+use crate::ctx_data::CtxData;
 use crate::sqlx_lib::PostgresPool;
-use crate::OSCAR_SIX_ID;
 
 pub struct Handler;
 
 #[async_trait]
-impl RawEventHandler for Handler {
-    async fn raw_event(&self, ctx: Context, ev: Event) {
-        let event_name = ev.name().unwrap_or(String::from("Unknown"));
-        let ev_command_name = match &ev {
-            Event::InteractionCreate(InteractionCreateEvent {
+impl EventHandler for Handler {
+    async fn dispatch(&self, ctx: &Context, ev: &FullEvent) {
+        let event_name: &'static str = ev.into();
+
+        let ev_command_name = match ev {
+            FullEvent::InteractionCreate {
                 interaction: Interaction::Command(interaction),
                 ..
-            }) => interaction.data.name.clone(),
-            _ => String::from("Unknown"),
+            } => interaction.data.name.as_str(),
+            _ => "",
         };
-        let ev_debug = format!("{:?}", ev);
 
-        let pool = PostgresPool::get(&ctx).await;
+        let pool = {
+            let data = ctx.data::<RwLock<CtxData>>();
+            let data = data.read().await;
+            data.pool().clone()
+        };
 
         let result = match ev {
-            Event::InteractionCreate(interaction) => {
-                Self::interaction_create(&ctx, interaction.interaction, &pool).await
+            FullEvent::Ready { data_about_bot, .. } => {
+                Self::ready(ctx, data_about_bot, &pool).await
             }
-            Event::Ready(ready) => Self::ready(&ctx, ready.ready, &pool).await,
-
+            FullEvent::InteractionCreate { interaction, .. } => {
+                Self::interaction_create(ctx, interaction, &pool).await
+            }
             _ => Ok(()),
         };
 
         if let Err(e) = result {
-            let msg = format!("Error handling {event_name} | {ev_command_name}: {:?}", e);
-            eprintln!("\n{}\n{}\n", msg, ev_debug);
+            let msg = if ev_command_name.is_empty() {
+                format!("Error handling {event_name}: {e:?}")
+            } else {
+                format!("Error handling {event_name} | {ev_command_name}: {e:?}")
+            };
 
-            if let Ok(channel) = OSCAR_SIX_ID.create_dm_channel(&ctx).await {
-                let _ = channel.say(&ctx, msg).await;
-            }
+            eprintln!("\n{msg}\n{ev:?}\n");
         }
     }
 }

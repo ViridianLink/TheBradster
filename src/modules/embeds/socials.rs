@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use serenity::all::{
-    CommandInteraction, Context, CreateButton, CreateCommand, CreateEmbed, CreateMessage,
-    EditInteractionResponse, Permissions, ResolvedOption,
+    CommandInteraction, Context, CreateButton, CreateCommand, CreateEmbed,
+    CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, Permissions,
+    ResolvedOption,
 };
 use sqlx::{PgPool, Postgres};
 use zayden_core::SlashCommand;
@@ -27,8 +28,6 @@ impl SlashCommand<Error, Postgres> for Socials {
         _options: Vec<ResolvedOption<'_>>,
         _pool: &PgPool,
     ) -> Result<()> {
-        interaction.defer_ephemeral(ctx).await.unwrap();
-
         let embed = CreateEmbed::new().title("Socials").description(format!(
             r#"Instagram: [BradleyTheBradster]({INSTAGRAM})
 Twitch: [BradleyTheBradster]({TWITCH})
@@ -45,7 +44,7 @@ TikTok: [BradsterOfficial]({TIKTOK})"#
         interaction
             .channel_id
             .send_message(
-                ctx,
+                &ctx.http,
                 CreateMessage::new()
                     .embed(embed)
                     .button(instagram)
@@ -57,9 +56,13 @@ TikTok: [BradsterOfficial]({TIKTOK})"#
             .unwrap();
 
         interaction
-            .edit_response(
-                ctx,
-                EditInteractionResponse::new().content("Rules embed sent!"),
+            .create_response(
+                &ctx.http,
+                CreateInteractionResponse::Message(
+                    CreateInteractionResponseMessage::new()
+                        .content("Socials embed sent!")
+                        .ephemeral(true),
+                ),
             )
             .await
             .unwrap();
@@ -67,7 +70,7 @@ TikTok: [BradsterOfficial]({TIKTOK})"#
         Ok(())
     }
 
-    fn register(_ctx: &Context) -> Result<CreateCommand> {
+    fn register(_ctx: &Context) -> Result<CreateCommand<'_>> {
         let cmd = CreateCommand::new("socials")
             .description("Send the socials embed")
             .default_member_permissions(Permissions::BAN_MEMBERS);

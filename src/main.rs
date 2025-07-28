@@ -1,17 +1,16 @@
-use std::env;
+use std::sync::Arc;
 
-use serenity::all::{ClientBuilder, GatewayIntents, GuildId, UserId};
-use serenity::prelude::TypeMap;
+use ctx_data::CtxData;
+pub use error::{Error, Result};
+use handler::Handler;
+use serenity::all::{ClientBuilder, GatewayIntents, GuildId, Token, UserId};
+use tokio::sync::RwLock;
 
+pub mod ctx_data;
+mod error;
 mod handler;
 pub mod modules;
 mod sqlx_lib;
-use sqlx_lib::PostgresPool;
-mod error;
-
-use handler::Handler;
-
-pub use error::{Error, Result};
 
 pub const OSCAR_SIX_ID: UserId = UserId::new(211486447369322506);
 pub const GUILD_ID: GuildId = GuildId::new(1255957182457974875);
@@ -20,17 +19,16 @@ pub const GUILD_ID: GuildId = GuildId::new(1255957182457974875);
 async fn main() {
     dotenvy::dotenv().unwrap();
 
-    let pool = PostgresPool::init().await;
-    let mut type_map = TypeMap::new();
-    type_map.insert::<PostgresPool>(pool);
+    let data = CtxData::new().await.unwrap();
 
-    let token = &env::var("DISCORD_TOKEN").unwrap();
-
-    let mut client = ClientBuilder::new(token, GatewayIntents::all())
-        .type_map(type_map)
-        .raw_event_handler(Handler)
-        .await
-        .unwrap();
+    let mut client = ClientBuilder::new(
+        Token::from_env("DISCORD_TOKEN").unwrap(),
+        GatewayIntents::all(),
+    )
+    .data(Arc::new(RwLock::new(data)))
+    .event_handler(Handler)
+    .await
+    .unwrap();
 
     client.start().await.unwrap();
 }

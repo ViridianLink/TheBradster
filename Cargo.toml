@@ -1,21 +1,21 @@
 [package]
 name = "discord-bot"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-zayden-core = { git = "https://github.com/zayden-bot/slash-command-core.git", branch = "master" }
-ticket = { git = "https://github.com/zayden-bot/ticket.git", branch = "main" }
+zayden-core = { git = "https://github.com/ViridianLink/zayden.git", branch = "main", package = "zayden-core" }
+ticket = { git = "https://github.com/ViridianLink/zayden.git", branch = "main", package = "ticket" }
 
 async-trait = { version = "*", default-features = false }
 dotenvy = { version = "*", default-features = false }
-serenity = { version = "*", default-features = false, features = [
-    "rustls_backend",
-    "model",
+serenity = { git = "https://github.com/serenity-rs/serenity", branch = "next", default-features = false, features = [
+    "transport_compression_zlib",
+    "transport_compression_zstd",
 ] }
 sqlx = { version = "*", default-features = false, features = [
-    "runtime-tokio",
     "postgres",
+    "runtime-tokio-rustls",
 ] }
 tokio = { version = "*", default-features = false, features = [
     "rt-multi-thread",

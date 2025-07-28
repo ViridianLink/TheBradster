@@ -1,33 +1,18 @@
 use std::env;
 
-use serenity::all::Context;
-use serenity::prelude::TypeMapKey;
-use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 
-pub struct PostgresPool;
-
-impl PostgresPool {
-    pub async fn init() -> PgPool {
-        let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-
+pub trait PostgresPool {
+    async fn new_pool() -> sqlx::Result<PgPool> {
         PgPoolOptions::new()
             .max_connections(10)
-            .connect(&database_url)
+            .min_connections(1)
+            .connect(&env::var("DATABASE_URL").unwrap())
             .await
-            .expect("Should be able to connect to the database")
     }
 
-    pub async fn get(ctx: &Context) -> PgPool {
-        let data = ctx.data.read().await;
-        data.get::<PostgresPool>()
-            .expect("PostgresPool should exist in data.")
-            .clone()
-    }
-}
-
-impl TypeMapKey for PostgresPool {
-    type Value = PgPool;
+    fn pool(&self) -> &PgPool;
 }
 
 pub struct GuildTable;
